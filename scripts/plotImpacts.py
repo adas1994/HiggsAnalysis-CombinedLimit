@@ -55,6 +55,9 @@ parser.add_argument("--POI", default=None, help="Specify a POI to draw")
 parser.add_argument("--sort", "-s", choices=["impact", "constraint", "pull"], default="impact", help="The metric to sort the list of parameters")
 parser.add_argument("--relative", "-r", action="store_true", help="Show impacts relative to the uncertainty on the POI")
 parser.add_argument("--summary", action="store_true", help="Produce additional summary page, named [output]_summary.pdf")
+parser.add_argument("--numToys", type=int, default=-1)
+parser.add_argument("--seed",    type=int, default=123456)
+
 args = parser.parse_args()
 
 externalPullDef = args.pullDef is not None

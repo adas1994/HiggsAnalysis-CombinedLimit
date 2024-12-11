@@ -23,6 +23,8 @@ class Impacts(CombineToolBase):
         CombineToolBase.attach_intercept_args(self, group)
         group.add_argument("-m", "--mass", required=True)
         group.add_argument("-d", "--datacard", required=True)
+        group.add_argument("-t", "--numToys", type=int, required=False, default=-1)
+        group.add_argument("-s", "--seed",    type=int, required=False, default=123456)
         group.add_argument(
             "--redefineSignalPOIs",
             help="""This option will be
@@ -86,13 +88,27 @@ class Impacts(CombineToolBase):
         )
         group.add_argument("--approx", default=None, choices=["hesse", "robust"], help="""Calculate impacts using the covariance matrix instead""")
         group.add_argument("--noInitialFit", action="store_true", default=False, help="""Do not look for results from the initial Fit""")
-
+        group_dict = group.__dict__
+        group_dict_keys = list(group_dict.keys())
+        #for key in group_dict_keys :
+        #    print(key)
+        #    print("----------------------------")
+        #    print(group_dict[key])
+        #    print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        #args, unknown = group.parse_known_args()
+        #print(self.args)
+        #sys.exit()
     def run_method(self):
+        print(self.args)
+        #sys.exit()
         if self.args.allPars:
             print("Info: the behaviour of --allPars is now always enabled and the option will be removed in a future update")
         passthru = self.passthru
+        print("passthru ",  self.passthru)
         mh = self.args.mass
         ws = self.args.datacard
+        numToys = self.args.numToys
+        seed = str(self.args.seed)
         name = self.args.name if self.args.name is not None else ""
         named = []
         if self.args.named is not None:
@@ -111,7 +127,7 @@ class Impacts(CombineToolBase):
             poiList = utils.list_from_workspace(ws, "w", "ModelConfig_POI")
         print("Have POIs: " + str(poiList))
         poistr = ",".join(poiList)
-
+        print(self.job_queue)
         if self.args.approx == "hesse" and self.args.doFits:
             self.job_queue.append(
                 "combine -M MultiDimFit -n _approxFit_%(name)s --algo none --redefineSignalPOIs %(poistr)s --floatOtherPOIs 1 --saveInactivePOI 1 --saveFitResult %(pass_str)s"
@@ -124,6 +140,10 @@ class Impacts(CombineToolBase):
                 "combine -M MultiDimFit -n _approxFit_%(name)s --algo none --redefineSignalPOIs %(poistr)s --floatOtherPOIs 1 --saveInactivePOI 1 --robustHesse 1 %(pass_str)s"
                 % {"name": name, "poistr": poistr, "pass_str": pass_str}
             )
+            print("************************************************************")
+            print(self.job_queue)
+            print("************************************************************")
+            #sys.exit()
             self.flush_queue()
             sys.exit(0)
 
@@ -137,14 +157,17 @@ class Impacts(CombineToolBase):
             if self.args.splitInitial:
                 for poi in poiList:
                     self.job_queue.append(
-                        "combine -M MultiDimFit -n _initialFit_%(name)s_POI_%(poi)s --algo singles --redefineSignalPOIs %(poistr)s --floatOtherPOIs 1 --saveInactivePOI 1 -P %(poi)s %(pass_str)s"
-                        % {"name": name, "poi": poi, "poistr": poistr, "pass_str": pass_str}
+                        "combine -M MultiDimFit -n _initialFit_%(name)s_POI_%(poi)s --algo singles --redefineSignalPOIs %(poistr)s --floatOtherPOIs 1 --saveInactivePOI 1 -P %(poi)s %(pass_str)s -t %(numToys)s -s %(seed)s"
+                        % {"name": name, "poi": poi, "poistr": poistr, "pass_str": pass_str, "numToys": str(numToys), "seed" : seed}
                     )
             else:
                 self.job_queue.append(
-                    "combine -M MultiDimFit -n _initialFit_%(name)s --algo singles --redefineSignalPOIs %(poistr)s %(pass_str)s"
-                    % {"name": name, "poistr": poistr, "pass_str": pass_str}
+                    "combine -M MultiDimFit -n _initialFit_%(name)s --algo singles --redefineSignalPOIs %(poistr)s %(pass_str)s -t %(numToys)s -s %(seed)s"
+                    % {"name": name, "poistr": poistr, "pass_str": pass_str, "numToys": str(numToys), "seed" : seed}
                 )
+            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+            print(self.job_queue)
+            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
             self.flush_queue()
             sys.exit(0)
 
@@ -166,11 +189,19 @@ class Impacts(CombineToolBase):
                     initialRes = utils.get_robusthesse(floatParams, rfr, poiList, poiList)
             elif self.args.splitInitial:
                 for poi in poiList:
+                    if numToys == -1 :
+                        outputrootfile_from_initialFit = "higgsCombine_initialFit_%(name)s_POI_%(poi)s.MultiDimFit.mH%(mh)s.root" % vars()
+                    elif numToys > 0 :
+                        outputrootfile_from_initialFit = "higgsCombine_initialFit_%(name)s_POI_%(poi)s.MultiDimFit.mH%(mh)s.%(seed)s.root" % vars()
                     initialRes.update(
-                        utils.get_singles_results("higgsCombine_initialFit_%(name)s_POI_%(poi)s.MultiDimFit.mH%(mh)s.root" % vars(), [poi], poiList)
+                        utils.get_singles_results(outputrootfile_from_initialFit, [poi], poiList)
                     )
             else:
-                initialRes = utils.get_singles_results("higgsCombine_initialFit_%(name)s.MultiDimFit.mH%(mh)s.root" % vars(), poiList, poiList)
+                if numToys == -1 :
+                    outputrootfile_from_initialFit = "higgsCombine_initialFit_%(name)s.MultiDimFit.mH%(mh)s.root" % vars()
+                elif numToys > 0 :
+                    outputrootfile_from_initialFit = "higgsCombine_initialFit_%(name)s.MultiDimFit.mH%(mh)s.%(seed)s.root" % vars()
+                initialRes = utils.get_singles_results(outputrootfile_from_initialFit, poiList, poiList)
 
         ################################################
         # Build the parameter list
@@ -235,8 +266,8 @@ class Impacts(CombineToolBase):
             # print 'Doing param ' + str(counter) + ': ' + param
             if self.args.doFits:
                 self.job_queue.append(
-                    "combine -M MultiDimFit -n _paramFit_%(name)s_%(param)s --algo impact --redefineSignalPOIs %(poistr)s -P %(param)s --floatOtherPOIs 1 --saveInactivePOI 1 %(pass_str)s"
-                    % vars()
+                    "combine -M MultiDimFit -n _paramFit_%(name)s_%(param)s --algo impact --redefineSignalPOIs %(poistr)s -P %(param)s --floatOtherPOIs 1 --saveInactivePOI 1 %(pass_str)s -t %(numToys)s -s %(seed)s"
+                    % {"name": name, "poi": poi, "poistr": poistr, "pass_str": pass_str, "numToys": str(numToys), "seed" : seed, "param": param}
                 )
             else:
                 if self.args.approx == "hesse":
@@ -247,9 +278,11 @@ class Impacts(CombineToolBase):
                     else:
                         paramScanRes = None
                 else:
-                    paramScanRes = utils.get_singles_results(
-                        "higgsCombine_paramFit_%(name)s_%(param)s.MultiDimFit.mH%(mh)s.root" % vars(), [param], poiList + [param]
-                    )
+                    if numToys == -1 :
+                        inputrootfile_name = "higgsCombine_paramFit_%(name)s_%(param)s.MultiDimFit.mH%(mh)s.root" % vars()
+                    elif numToys > 0 :
+                        inputrootfile_name = "higgsCombine_paramFit_%(name)s_%(param)s.MultiDimFit.mH%(mh)s.%(seed)s.root" % vars()
+                    paramScanRes = utils.get_singles_results(inputrootfile_name , [param], poiList + [param])
                 if paramScanRes is None:
                     missing.append(param)
                     continue

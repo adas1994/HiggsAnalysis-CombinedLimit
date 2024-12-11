@@ -847,6 +847,9 @@ class ModelBuilder(ModelBuilderBase):
         groupsFor = {}
         # existingNuisanceNames = tuple(set([syst[0] for syst in self.DC.systs]+self.DC.flatParamNuisances.keys()+self.DC.rateParams.keys()+self.DC.extArgs.keys()+self.DC.discretes))
         existingNuisanceNames = self.DC.getAllVariables()
+        print("**********************************************")
+        print(existingNuisanceNames)
+        print("**********************************************")
         for groupName, nuisanceNames in six.iteritems(self.DC.groups):
             for nuisanceName in nuisanceNames:
                 if nuisanceName not in existingNuisanceNames:
@@ -902,6 +905,7 @@ class ModelBuilder(ModelBuilderBase):
                 alogNorms = []  # (kappaLo, kappaHi, RooAbsReal) asymm lnN
                 if scale == 1:
                     pass
+
                 elif type(scale) == str:
                     factors.append(scale)
                 else:
